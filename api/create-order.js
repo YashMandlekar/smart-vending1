@@ -4,60 +4,62 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { amount } = req.body;
+    const { amount, items } = req.body;
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ success: false, error: "Invalid amount" });
+    }
 
     const APP_ID = process.env.CASHFREE_APP_ID;
     const SECRET = process.env.CASHFREE_SECRET;
 
     if (!APP_ID || !SECRET) {
-      return res.status(500).json({
-        success: false,
-        error: "Cashfree keys missing!"
-      });
+      return res.status(500).json({ success: false, error: "Cashfree keys missing" });
     }
 
-    const orderData = {
-      order_id: "order_" + Date.now(),
+    const payload = {
       order_amount: amount,
       order_currency: "INR",
       customer_details: {
         customer_id: "cust_" + Date.now(),
-        customer_email: "noemail@cashfree.com",
-        customer_phone: "9999999999"
+        customer_phone: "9999999999",
+        customer_email: "no-reply@test.com"
       }
     };
 
-    const response = await fetch("https://api.cashfree.com/pg/orders", {
+    const cfRes = await fetch("https://api.cashfree.com/pg/orders", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "x-api-version": "2022-09-01",
         "x-client-id": APP_ID,
         "x-client-secret": SECRET,
-        "x-api-version": "2022-01-01"
       },
-      body: JSON.stringify(orderData)
+      body: JSON.stringify(payload),
     });
 
-    const data = await response.json();
-    console.log("Cashfree:", data);
+    const json = await cfRes.json();
 
-    if (!data.payment_session_id) {
+    // 🌟 THIS IS THE MOST IMPORTANT FIX
+    const payment_session_id = json?.payment_session_id;
+
+    if (!payment_session_id) {
       return res.status(500).json({
         success: false,
         error: "Payment session missing",
-        cashfree: data
+        cashfree: json
       });
     }
 
     return res.status(200).json({
       success: true,
-      payment_session_id: data.payment_session_id
+      payment_session_id,
+      order: json,
+      items: items || []
     });
 
   } catch (err) {
-    return res.status(500).json({
-      success: false,
-      error: err.message || "Unknown error"
-    });
+    return res.status(500).json({ success: false, error: err.message });
   }
 }
+
