@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Cashfree New UI SDK -->
+  <!-- Cashfree UI SDK -->
   <script src="https://sdk.cashfree.com/js/ui/2.0.0/cashfree-ui.js"></script>
 
   <!-- Firebase -->
@@ -14,9 +14,9 @@
   <title>Smart IoT Vending</title>
 
   <style>
-    body { font-family: Arial; background: #f2f2f2; text-align:center; }
-    .card { background:#fff; padding:14px; margin:12px auto; width:90%; max-width:400px; border-radius:10px; }
-    button { background:#0078ff; color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; }
+    body { font-family: Arial; background:#f2f2f2; text-align:center; }
+    .card { background:white; padding:15px; margin:14px auto; width:90%; max-width:400px; border-radius:10px; }
+    button { padding:10px 20px; border:none; background:#007bff; color:white; border-radius:8px; margin-top:8px; cursor:pointer; }
     .addedBtn { background:#34a853 !important; }
   </style>
 </head>
@@ -48,8 +48,9 @@
   <p id="msg"></p>
 </div>
 
+
 <script>
-/* ---------- FIREBASE ---------- */
+// ---------------- Firebase ----------------
 firebase.initializeApp({
   apiKey: "AIzaSyAPTlRQNFK2xqtRgT6OxEKDX7UphhsIC1c",
   authDomain: "smartvending-a7db9.firebaseapp.com",
@@ -58,10 +59,13 @@ firebase.initializeApp({
 });
 const db = firebase.database();
 
-/* ---------- BACKEND URL ---------- */
-const BACKEND_URL = "/api/create-order";
 
-/* ---------- ITEM SELECTION ---------- */
+// --------------- SETTINGS -----------------
+const BACKEND_URL = "https://smart-vending1.vercel.app/api/create-order"; 
+// <- Yaha apna Vercel URL laga dena
+
+
+// ---------- ITEM HANDLING ----------
 let selected = [];
 let total = 0;
 
@@ -80,6 +84,7 @@ function toggleItem(name, price, id) {
     btn.innerText = "Added";
     btn.classList.add("addedBtn");
   }
+
   updateUI();
 }
 
@@ -90,30 +95,36 @@ function updateUI() {
   document.getElementById("totalPrice").innerText = "Total: ₹" + total;
 }
 
-/* ---------- PAYMENT FLOW ---------- */
+
+// ---------------- PAYMENT FLOW ----------------
 async function initiatePayment() {
-  if (total <= 0) return alert("Please select an item");
+  if (total <= 0) return alert("Please select an item first");
 
   document.getElementById("msg").innerText = "Creating order...";
 
-  const res = await fetch(BACKEND_URL, {
+  let res = await fetch(BACKEND_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ amount: total })
+    body: JSON.stringify({
+      amount: total,
+      items: selected
+    })
   });
 
-  const data = await res.json();
-  console.log("Backend response:", data);
+  const json = await res.json();
+  console.log("Backend:", json);
 
-  if (!data.payment_session_id) {
-    alert("Payment session missing!");
+  if (!json.success || !json.payment_session_id) {
+    alert("Payment session missing! Check backend.");
+    console.log("Backend error:", json);
     return;
   }
 
+  // Create Cashfree SDK instance
   const cashfree = await Cashfree({ mode: "production" });
 
   cashfree.pay({
-    paymentSessionId: data.payment_session_id,
+    paymentSessionId: json.payment_session_id,
     redirectTarget: "_self",
   });
 }
@@ -121,4 +132,3 @@ async function initiatePayment() {
 
 </body>
 </html>
-
