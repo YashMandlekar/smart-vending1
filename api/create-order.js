@@ -1,27 +1,32 @@
+export const config = {
+  runtime: "nodejs",
+};
+
 import { initializeApp, cert, getApps } from "firebase-admin/app";
 import { getDatabase } from "firebase-admin/database";
 
 if (!getApps().length) {
   initializeApp({
     credential: cert({
-      projectId: "smartvending-a7db9",
+      projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
       privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
     }),
-    databaseURL: "https://smartvending-a7db9-default-rtdb.asia-southeast1.firebasedatabase.app",
+    databaseURL:
+      "https://smartvending-a7db9-default-rtdb.asia-southeast1.firebasedatabase.app",
   });
 }
 
 export default async function handler(req, res) {
-  if (req.method !== "POST")
+  if (req.method !== "POST") {
     return res.status(405).json({ success: false, error: "POST only" });
+  }
 
   try {
     const { amount, items } = req.body;
     const orderId = "order_" + Date.now();
 
-    // Create Cashfree V3 Order
-    const response = await fetch("https://api.cashfree.com/pg/orders", {
+    const cfRes = await fetch("https://api.cashfree.com/pg/orders", {
       method: "POST",
       headers: {
         "x-client-id": process.env.CASHFREE_APP_ID,
@@ -40,38 +45,37 @@ export default async function handler(req, res) {
       }),
     });
 
-    const data = await response.json();
+    const cfData = await cfRes.json();
+    console.log("Cashfree Response:", cfData);
 
-    if (!data.payment_session_id) {
+    if (!cfData.payment_session_id) {
       return res.status(500).json({
         success: false,
         error: "Payment session missing",
-        raw: data,
+        cfData,
       });
     }
 
-    // Save to Firebase (ADMIN SDK)
     const db = getDatabase();
     await db.ref("orders/" + orderId).set({
       orderId,
       amount,
       items,
       status: "PENDING",
-      payment_session_id: data.payment_session_id,
+      session: cfData.payment_session_id,
       timestamp: Date.now(),
     });
 
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
-      payment_session_id: data.payment_session_id,
+      payment_session_id: cfData.payment_session_id,
       orderId,
     });
-
-  } catch (e) {
+  } catch (err) {
+    console.error("ERROR:", err);
     return res.status(500).json({
       success: false,
-      error: e.message,
+      error: err.message,
     });
   }
 }
-
