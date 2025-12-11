@@ -16,18 +16,17 @@ export default async function handler(req, res) {
     if (!APP_ID || !SECRET) {
       return res.status(500).json({
         success: false,
-        error: "Cashfree keys missing in Vercel env"
+        error: "Cashfree keys missing"
       });
     }
 
-    // Payload for Cashfree order API
     const payload = {
       order_id: "order_" + Date.now(),
       order_amount: amount,
       order_currency: "INR",
       customer_details: {
         customer_id: "cust_" + Date.now(),
-        customer_email: "noreply@vend.com",
+        customer_email: "noreply@test.com",
         customer_phone: "9999999999"
       }
     };
@@ -44,9 +43,9 @@ export default async function handler(req, res) {
     });
 
     const data = await response.json();
+    console.log("Cashfree response:", data);
 
-    if (!data || !data.payment_session_id) {
-      console.log("Cashfree error:", data);
+    if (!data.payment_session_id) {
       return res.status(500).json({
         success: false,
         error: "Payment session missing",
@@ -61,10 +60,10 @@ export default async function handler(req, res) {
     });
 
   } catch (err) {
-    console.error("Backend error:", err);
     return res.status(500).json({
       success: false,
-      error: err.message || "Server error"
+      error: err.message
     });
   }
 }
+
