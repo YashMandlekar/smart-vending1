@@ -4,77 +4,65 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <title>Smart IoT Vending (Cashfree Production)</title>
-
-  <!-- Cashfree V3 SDK -->
+   <title>Smart IoT Vending</title>
   <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
 
-  <!-- Firebase (optional for logging) -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-
   <style>
-    body { 
-      font-family: Arial, sans-serif; 
-      background: #f1f3f5; 
-      padding: 20px; 
-      text-align: center; 
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f2f5;
+      text-align: center;
+      padding: 20px;
     }
-    .card { 
-      background: #fff; 
-      padding: 16px; 
-      margin: 14px auto; 
-      max-width: 420px; 
-      border-radius: 12px; 
-      box-shadow: 0 4px 10px rgba(0,0,0,0.08); 
-      text-align: left;
+    .card {
+      background: white;
+      padding: 18px;
+      margin: 12px auto;
+      max-width: 360px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
     button {
-      padding: 10px 20px;
-      border-radius: 10px;
-      border: none;
-      cursor: pointer;
+      padding: 10px 16px;
       background: #007bff;
-      color:white;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
       font-size: 15px;
     }
-    button:hover { background: #005fcc; }
-    .addedBtn { background: #28a745 !important; }
-    #msg { margin-top: 10px; color: #333; font-weight: bold; }
+    button.added {
+      background: #28a745 !important;
+    }
   </style>
 </head>
 
 <body>
 
-<h2>Smart IoT Vending Machine</h2>
-<p>Select items and complete payment</p>
+<h2>Smart IoT Vending</h2>
 
-<!-- Items -->
 <div class="card">
   <h3>🥤 Water — ₹10</h3>
-  <button id="b1" onclick="toggleItem('Water', 10, 'b1')">Add Water</button>
-</div>
-
-<div class="card">
-  <h3>🧃 Juice — ₹10</h3>
-  <button id="b2" onclick="toggleItem('Juice', 10, 'b2')">Add Juice</button>
+  <button id="btn_water" onclick="toggleItem('WATER',10,'btn_water')">Add Water</button>
 </div>
 
 <div class="card">
   <h3>🍪 Biscuit — ₹10</h3>
-  <button id="b3" onclick="toggleItem('Biscuit', 10, 'b3')">Add Biscuit</button>
+  <button id="btn_biscuit" onclick="toggleItem('BISCUIT',10,'btn_biscuit')">Add Biscuit</button>
 </div>
 
-<!-- Summary -->
+<div class="card">
+  <h3>🧃 Juice — ₹10</h3>
+  <button id="btn_juice" onclick="toggleItem('JUICE',10,'btn_juice')">Add Juice</button>
+</div>
+
 <div class="card">
   <h3>Order Summary</h3>
-  <p id="orderList">Items: None</p>
-  <p id="totalPrice">Total: ₹0</p>
-
-  <button onclick="startPayment()">Proceed to Payment</button>
-  <p id="msg"></p>
+  <p id="summary">No items selected</p>
+  <p><b>Total: ₹<span id="total">0</span></b></p>
+  <button onclick="payNow()">Proceed to Pay</button>
+  <p id="status"></p>
 </div>
-
 
 <script>
 // -------------------- SELECT ITEMS --------------------
@@ -166,5 +154,6 @@ async function startPayment() {
 
 </body>
 </html>
+
 
 
