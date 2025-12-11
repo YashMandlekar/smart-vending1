@@ -4,19 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- CASHFREE NEW UI SDK (Correct + Tested) -->
-  <script src="https://sdk.cashfree.com/js/ui/v3/cashfree.js"></script>
-
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <!-- Cashfree UI SDK v2 -->
+  <script src="https://sdk.cashfree.com/js/ui/2.0.0/cashfree-ui.js"></script>
 
   <title>Smart IoT Vending</title>
 
   <style>
-    body { font-family: Arial; background: #f2f2f2; text-align:center; }
-    .card { background:#fff; padding:14px; margin:12px auto; width:90%; max-width:400px; border-radius:10px; }
-    button { background:#0078ff; color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; }
+    body { font-family: Arial; background:#f2f2f2; text-align:center; }
+    .card { background:#fff; padding:15px; margin:12px auto; width:90%; max-width:400px; border-radius:10px; }
+    button { padding:10px 20px; border-radius:8px; border:none; background:#0078ff; color:#fff; cursor:pointer; }
     .addedBtn { background:#34a853 !important; }
   </style>
 </head>
@@ -42,32 +38,18 @@
 
 <div class="card">
   <h3>Order Summary</h3>
-  <p id="orderList">Items: None</p>
-  <p id="totalPrice">Total: ₹0</p>
-  <button onclick="initiatePayment()">Proceed to Payment</button>
+  <p id="items">None</p>
+  <p id="total">Total: ₹0</p>
+  <button onclick="startPayment()">Proceed to Payment</button>
   <p id="msg"></p>
 </div>
 
 <script>
-/* ---------------------- FIREBASE ---------------------- */
-firebase.initializeApp({
-  apiKey: "AIzaSyAPTlRQNFK2xqtRgT6OxEKDX7UphhsIC1c",
-  authDomain: "smartvending-a7db9.firebaseapp.com",
-  databaseURL: "https://smartvending-a7db9-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "smartvending-a7db9"
-});
-
-const db = firebase.database();
-
-/* ---------------------- SETTINGS ---------------------- */
-const BACKEND_URL = "/api/create-order";  // CORRECT FOR VERCEL PROJECT
-
-/* ---------------------- ITEM LOGIC ---------------------- */
 let selected = [];
 let total = 0;
 
-function toggleItem(name, price, id) {
-  const btn = document.getElementById(id);
+function toggleItem(name, price, btnId) {
+  const btn = document.getElementById(btnId);
   const exists = selected.find(x => x.name === name);
 
   if (exists) {
@@ -76,54 +58,44 @@ function toggleItem(name, price, id) {
     btn.innerText = "Add " + name;
     btn.classList.remove("addedBtn");
   } else {
-    selected.push({ name, price });
+    selected.push({name, price});
     total += price;
     btn.innerText = "Added";
     btn.classList.add("addedBtn");
   }
-  updateUI();
+
+  document.getElementById("items").innerHTML =
+    selected.map(i => `- ${i.name} (₹${i.price})`).join("<br>") || "None";
+
+  document.getElementById("total").innerText = "Total: ₹" + total;
 }
 
-function updateUI() {
-  document.getElementById("orderList").innerHTML =
-    selected.length ? selected.map(i => `- ${i.name} (₹${i.price})`).join("<br>") : "Items: None";
-
-  document.getElementById("totalPrice").innerText = "Total: ₹" + total;
-}
-
-/* ---------------------- PAYMENT FLOW ---------------------- */
-async function initiatePayment() {
-  if (total <= 0) return alert("Please select an item");
+async function startPayment() {
+  if (total <= 0) return alert("Please select an item first!");
 
   document.getElementById("msg").innerText = "Creating order...";
 
-  const res = await fetch(BACKEND_URL, {
+  const res = await fetch("/api/create-order", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      amount: total,
-      items: selected.map(x => x.name)
-    })
+    body: JSON.stringify({ amount: total })
   });
 
   const data = await res.json();
   console.log("Backend:", data);
 
-  if (!data || !data.payment_session_id) {
+  if (!data.success || !data.payment_session_id) {
     alert("Payment session missing!");
     return;
   }
 
-  // Cashfree instance
-  const cf = new Cashfree();
+  const cashfree = Cashfree({ mode: "production" });
 
-  cf.checkout({
-    paymentSessionId: data.payment_session_id,
-    returnUrl: window.location.href
+  cashfree.checkout({
+    paymentSessionId: data.payment_session_id
   });
 }
 </script>
 
 </body>
 </html>
-
