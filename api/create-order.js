@@ -1,8 +1,11 @@
+// -------------------------------
+//  FIREBASE IMPORTS
+// -------------------------------
 import { initializeApp } from "firebase/app";
 import { getDatabase, ref, set } from "firebase/database";
 
 // -------------------------------
-//  FIREBASE CONFIG (YOUR VALUES)
+//  FIREBASE CONFIG
 // -------------------------------
 const firebaseConfig = {
   apiKey: "AIzaSyAPTlRQNFK2xqtRgT6OxEKDX7UphhsIC1c",
@@ -15,7 +18,7 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 // -------------------------------
-//  MAIN API HANDLER
+//  API HANDLER
 // -------------------------------
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -26,26 +29,25 @@ export default async function handler(req, res) {
     const { amount, items } = req.body;
 
     if (!amount || amount <= 0) {
-      return res.status(400).json({ success: false, error: "Invalid amount" });
+      return res.status(400).json({ success: false, error: "Amount missing" });
     }
 
-    // SECURITY: Hide keys in Vercel env
+    // Load from Vercel Environment Variables
     const APP_ID = process.env.CASHFREE_APP_ID;
     const SECRET_KEY = process.env.CASHFREE_SECRET_KEY;
 
     if (!APP_ID || !SECRET_KEY) {
       return res.status(500).json({
         success: false,
-        error: "Cashfree keys missing in Vercel Environment Variables",
+        error: "Cashfree keys missing in env variables",
       });
     }
 
-    // Generate unique order ID
     const orderId = "order_" + Date.now();
 
-    // --------------------------------------
-    //  CALL CASHFREE — CREATE PAYMENT SESSION
-    // --------------------------------------
+    // -------------------------------
+    //  CREATE CASHFREE ORDER (v3)
+    // -------------------------------
     const response = await fetch("https://api.cashfree.com/pg/orders", {
       method: "POST",
       headers: {
@@ -59,7 +61,7 @@ export default async function handler(req, res) {
         order_currency: "INR",
         customer_details: {
           customer_id: "cust_" + Date.now(),
-          customer_email: "no-email@system.com",
+          customer_email: "noemail@system.com",
           customer_phone: "9999999999",
         },
       }),
@@ -70,39 +72,30 @@ export default async function handler(req, res) {
     if (!cashfree?.payment_session_id) {
       return res.status(500).json({
         success: false,
-        error: "Failed to generate payment session",
+        error: "Payment session missing",
         cashfree,
       });
     }
 
-    // --------------------------------------
-    // SAVE INITIAL ORDER IN FIREBASE
-    // --------------------------------------
+    // -------------------------------
+    //  SAVE ORDER TO FIREBASE
+    // -------------------------------
     await set(ref(db, "orders/" + orderId), {
       orderId,
       amount,
       items,
-      status: "PENDING", // WAITING FOR PAYMENT
+      status: "PENDING",
       payment_session_id: cashfree.payment_session_id,
       timestamp: Date.now(),
     });
 
-    // --------------------------------------
-    // RETURN SESSION TO FRONTEND
-    // --------------------------------------
     return res.status(200).json({
       success: true,
-      orderId,
       payment_session_id: cashfree.payment_session_id,
+      orderId,
     });
 
   } catch (err) {
-    console.error("Backend Error:", err);
-    return res.status(500).json({
-      success: false,
-      error: err.message || "Server error",
-    });
+    return res.status(500).json({ success: false, error: err.message });
   }
 }
-
-
