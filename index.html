@@ -4,16 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- CASHFREE POPUP SDK (UI 2.0) -->
-  <script src="https://sdk.cashfree.com/js/ui/2.0.0/cashfree-ui.js"></script>
+  <!-- Correct Cashfree SDK v3 -->
+  <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
 
   <title>Smart IoT Vending</title>
 
   <style>
     body { font-family: Arial; background:#f2f2f2; text-align:center; }
     .card { background:#fff; padding:14px; margin:12px auto; width:90%; max-width:400px; border-radius:10px; }
-    button { background:#007bff; color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; }
-    .addedBtn { background:#34a853 !important; }
+    button { background:#0078ff; color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; }
+    .added { background:#34a853 !important; }
   </style>
 </head>
 
@@ -23,92 +23,92 @@
 
 <div class="card">
   <h3>🥤 Water — ₹10</h3>
-  <button id="b1" onclick="toggleItem('Water',10,'b1')">Add Water</button>
+  <button id="w" onclick="toggleItem('Water',10,'w')">Add Water</button>
 </div>
 
 <div class="card">
   <h3>🧃 Juice — ₹10</h3>
-  <button id="b2" onclick="toggleItem('Juice',10,'b2')">Add Juice</button>
+  <button id="j" onclick="toggleItem('Juice',10,'j')">Add Juice</button>
 </div>
 
 <div class="card">
   <h3>🍪 Biscuit — ₹10</h3>
-  <button id="b3" onclick="toggleItem('Biscuit',10,'b3')">Add Biscuit</button>
+  <button id="b" onclick="toggleItem('Biscuit',10,'b')">Add Biscuit</button>
 </div>
 
 <div class="card">
   <h3>Order Summary</h3>
-  <p id="orderList">Items: None</p>
-  <p id="totalPrice">Total: ₹0</p>
-  <button onclick="initiatePayment()">Proceed to Payment</button>
+  <p id="items">No items selected</p>
+  <p id="total">Total: ₹0</p>
+  <button onclick="payNow()">Proceed to Payment</button>
   <p id="msg"></p>
 </div>
 
 <script>
-/* ---- FRONTEND SETTINGS ---- */
-const BACKEND_URL = "https://smart-vending1.vercel.app/api/create-order";
+let cart = [];
+let amount = 0;
 
-/* ---- ITEMS ---- */
-let selected = [];
-let total = 0;
+// BACKEND URL
+const BACKEND = "/api/create-order";   // Correct path for Vercel
 
-function toggleItem(name, price, id) {
+function toggleItem(name, price, id){
   const btn = document.getElementById(id);
-  const found = selected.find(x => x.name === name);
+  const exists = cart.find(x => x.name === name);
 
-  if (found) {
-    selected = selected.filter(x => x.name !== name);
-    total -= price;
+  if(exists){
+    cart = cart.filter(x => x.name !== name);
+    amount -= price;
     btn.innerText = "Add " + name;
-    btn.classList.remove("addedBtn");
+    btn.classList.remove("added");
   } else {
-    selected.push({ name, price });
-    total += price;
+    cart.push({ name, price });
+    amount += price;
     btn.innerText = "Added";
-    btn.classList.add("addedBtn");
+    btn.classList.add("added");
   }
 
   updateUI();
 }
 
-function updateUI() {
-  document.getElementById("orderList").innerHTML =
-    selected.length ? selected.map(i => `- ${i.name} (₹${i.price})`).join("<br>") : "Items: None";
+function updateUI(){
+  document.getElementById("items").innerHTML =
+    cart.length ? cart.map(x => `- ${x.name} (₹${x.price})`).join("<br>")
+                : "No items selected";
 
-  document.getElementById("totalPrice").innerText = "Total: ₹" + total;
+  document.getElementById("total").innerText = "Total: ₹" + amount;
 }
 
-/* ---- PAYMENT ---- */
-async function initiatePayment() {
-  if (total <= 0) return alert("Please select at least one item.");
-
-  document.getElementById("msg").innerText = "Creating order...";
-
-  const res = await fetch(BACKEND_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      amount: total,
-      items: selected.map(x => x.name)
-    })
-  });
-
-  const json = await res.json();
-  console.log("Backend:", json);
-
-  if (!json.success || !json.order?.payment_session_id) {
-    alert("Payment session missing");
+async function payNow(){
+  if(amount <= 0){
+    alert("Please add an item.");
     return;
   }
 
-  /** POPUP CHECKOUT **/
-  const cashfree = new Cashfree({
-    mode: "production",
+  document.getElementById("msg").innerText = "Creating order...";
+
+  const res = await fetch(BACKEND, {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      amount: amount,
+      items: cart
+    })
   });
 
-  cashfree.checkout({
-    paymentSessionId: json.order.payment_session_id,
-    redirectTarget: "_self",  // Not needed for popup but required by SDK
+  const data = await res.json();
+  console.log("BACKEND:", data);
+
+  if(!data.payment_session_id){
+    alert("Payment session missing!");
+    return;
+  }
+
+  // Initialize SDK
+  const cf = Cashfree({ mode: "production" });   // NO AWAIT IN v3
+
+  cf.checkout({
+    paymentSessionId: data.payment_session_id,
+    redirectTarget: "_self"
   });
 }
 </script>
