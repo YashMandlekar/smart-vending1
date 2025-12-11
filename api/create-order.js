@@ -1,10 +1,9 @@
 export const config = {
-  api: {
-    bodyParser: true,
-  },
+  api: { bodyParser: true }
 };
 
 export default async function handler(req, res) {
+  // CORS FIX
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -26,19 +25,19 @@ export default async function handler(req, res) {
     if (!APP_ID || !SECRET) {
       return res.status(500).json({
         success: false,
-        error: "Cashfree keys not configured",
+        error: "Cashfree keys missing"
       });
     }
 
-    const orderPayload = {
+    const payload = {
       order_id: "order_" + Date.now(),
       order_amount: amount,
       order_currency: "INR",
       customer_details: {
         customer_id: "cust_" + Date.now(),
-        customer_phone: "9999999999",
-        customer_email: "demo@example.com",
-      },
+        customer_email: "no-reply@vending.com",
+        customer_phone: "9999999999"
+      }
     };
 
     const r = await fetch("https://api.cashfree.com/pg/orders", {
@@ -46,24 +45,23 @@ export default async function handler(req, res) {
       headers: {
         "Content-Type": "application/json",
         "x-client-id": APP_ID,
-        "x-client-secret": SECRET,
+        "x-client-secret": SECRET
       },
-      body: JSON.stringify(orderPayload),
+      body: JSON.stringify(payload)
     });
 
     const json = await r.json();
 
     return res.status(200).json({
       success: true,
-      order: json.data,
-      items,
+      order: json.data,   // contains payment_session_id
+      items
     });
+
   } catch (err) {
     return res.status(500).json({
       success: false,
-      error: err.message,
+      error: err.message
     });
   }
 }
-
-
