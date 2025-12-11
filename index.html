@@ -1,29 +1,29 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Smart IoT Vending</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <!-- Cashfree New UI SDK -->
+  <script src="https://sdk.cashfree.com/js/ui/2.0.0/cashfree-ui.js"></script>
 
-<!-- Cashfree V3 SDK -->
-<script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 
-<style>
-body{font-family:Poppins,Arial;background:#f6f8fa;padding:20px;text-align:center;}
-.card{background:#fff;padding:16px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.08);margin:12px auto;max-width:420px;}
-button{background:#0078d7;color:#fff;border:none;padding:10px 16px;border-radius:10px;font-size:15px;cursor:pointer;}
-.addedBtn{background:#34a853 !important;}
-.status{margin-top:12px;font-weight:bold;}
-</style>
+  <title>Smart IoT Vending</title>
+
+  <style>
+    body { font-family: Arial; background: #f2f2f2; text-align:center; }
+    .card { background:#fff; padding:14px; margin:12px auto; width:90%; max-width:400px; border-radius:10px; }
+    button { background:#0078ff; color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; }
+    .addedBtn { background:#34a853 !important; }
+  </style>
 </head>
+
 <body>
 
 <h2>Smart IoT Vending</h2>
-<p>Select items & Pay</p>
 
 <div class="card">
   <h3>🥤 Water — ₹10</h3>
@@ -31,142 +31,97 @@ button{background:#0078d7;color:#fff;border:none;padding:10px 16px;border-radius
 </div>
 
 <div class="card">
-  <h3>🧃 Juice — ₹20</h3>
-  <button id="b2" onclick="toggleItem('Juice',20,'b2')">Add Juice</button>
+  <h3>🧃 Juice — ₹10</h3>
+  <button id="b2" onclick="toggleItem('Juice',10,'b2')">Add Juice</button>
 </div>
 
 <div class="card">
-  <h3>🍪 Biscuit — ₹30</h3>
-  <button id="b3" onclick="toggleItem('Biscuit',30,'b3')">Add Biscuit</button>
+  <h3>🍪 Biscuit — ₹10</h3>
+  <button id="b3" onclick="toggleItem('Biscuit',10,'b3')">Add Biscuit</button>
 </div>
 
 <div class="card">
   <h3>Order Summary</h3>
-  <p id="orderList">Items: None selected</p>
+  <p id="orderList">Items: None</p>
   <p id="totalPrice">Total: ₹0</p>
-  <button onclick="initiatePayment()">Proceed to Pay</button>
-  <p id="msg" class="status"></p>
+  <button onclick="initiatePayment()">Proceed to Payment</button>
+  <p id="msg"></p>
 </div>
 
 <script>
-// FIREBASE
+/* --- Firebase --- */
 firebase.initializeApp({
   apiKey: "AIzaSyAPTlRQNFK2xqtRgT6OxEKDX7UphhsIC1c",
   authDomain: "smartvending-a7db9.firebaseapp.com",
   databaseURL: "https://smartvending-a7db9-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "smartvending-a7db9",
-  storageBucket: "smartvending-a7db9.appspot.com",
-  messagingSenderId: "306898447779",
-  appId: "1:306898447779:web:ac27ff2f067a12fd74fe16"
+  projectId: "smartvending-a7db9"
 });
 const db = firebase.database();
 
-// BACKEND URL (SAME DOMAIN - NO CORS)
-const CASHFREE_URL = "/api/create-order";
+/* --- FRONTEND SETTINGS --- */
+const BACKEND_URL = "https://YOUR-VERCEL-PROJECT.vercel.app/api/create-order";
 
-let selectedItems = [];
+/* --- ITEM SELECTION --- */
+let selected = [];
 let total = 0;
 
-function toggleItem(name, price, btn) {
-  const button = document.getElementById(btn);
-  const found = selectedItems.find(i => i.name === name);
+function toggleItem(name, price, id) {
+  const btn = document.getElementById(id);
+  const exists = selected.find(x => x.name === name);
 
-  if (found) {
-    selectedItems = selectedItems.filter(i => i.name !== name);
+  if (exists) {
+    selected = selected.filter(x => x.name !== name);
     total -= price;
-    button.classList.remove("addedBtn");
-    button.innerText = "Add " + name;
+    btn.innerText = "Add " + name;
+    btn.classList.remove("addedBtn");
   } else {
-    selectedItems.push({ name, price });
+    selected.push({ name, price });
     total += price;
-    button.classList.add("addedBtn");
-    button.innerText = "Added";
+    btn.innerText = "Added";
+    btn.classList.add("addedBtn");
   }
-  updateSummary();
+  updateUI();
 }
 
-function updateSummary() {
+function updateUI() {
   document.getElementById("orderList").innerHTML =
-    selectedItems.length === 0
-    ? "Items: None"
-    : selectedItems.map(i => `- ${i.name} (₹${i.price})`).join("<br>");
+    selected.length ? selected.map(i => `- ${i.name} (₹${i.price})`).join("<br>") : "Items: None";
 
   document.getElementById("totalPrice").innerText = "Total: ₹" + total;
 }
 
+/* --- PAYMENT FLOW --- */
 async function initiatePayment() {
-
-  if (total <= 0) { alert("Choose an item first!"); return; }
+  if (total <= 0) return alert("Please select an item");
 
   document.getElementById("msg").innerText = "Creating order...";
 
-  // CREATE ORDER FROM BACKEND
-  const resp = await fetch(CASHFREE_URL, {
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body:JSON.stringify({
+  const res = await fetch(BACKEND_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
       amount: total,
-      items: selectedItems.map(i => i.name)
+      items: selected.map(x => x.name)
     })
   });
 
-  const data = await resp.json();
-  console.log("ORDER RESPONSE:", data);
+  const data = await res.json();
+  console.log("Backend response:", data);
 
-  if (!data.success) {
-    document.getElementById("msg").innerText = "Order creation failed!";
+  if (!data.payment_session_id) {
+    alert("Payment session missing!");
     return;
   }
 
-  // GET PAYMENT SESSION ID
-  const session =
-    data.order?.payment_session_id ||
-    data.order?.data?.payment_session_id ||
-    data?.data?.payment_session_id;
+  const cashfree = await Cashfree({ mode: "production" });
 
-  if (!session) {
-    document.getElementById("msg").innerText = "Payment session missing!";
-    return;
-  }
-
-  const cf = Cashfree({ mode: "production" });
-
-  // LAUNCH CHECKOUT WITHOUT ASKING PHONE/EMAIL
-  cf.checkout({
-    paymentSessionId: session,
+  cashfree.pay({
+    paymentSessionId: data.payment_session_id,
     redirectTarget: "_self",
-    layout: {
-      userDetails: {
-        showEmail: false,
-        showPhone: false
-      }
-    }
-  }).then(async (result) => {
-
-    const success =
-      result?.paymentDetails?.status === "SUCCESS" ||
-      result?.status === "SUCCESS";
-
-    if (success) {
-      const payId =
-        result?.paymentDetails?.payment_id ||
-        result?.transaction?.transaction_id ||
-        null;
-
-      await db.ref("orders").push({
-        payment_id: payId,
-        items: selectedItems.map(i => i.name),
-        amount: total,
-        timestamp: Date.now()
-      });
-
-      document.getElementById("msg").innerText = "Payment Success! Dispensing...";
-    } else {
-      document.getElementById("msg").innerText = "Payment Failed!";
-    }
   });
 }
 </script>
 
 </body>
 </html>
+
