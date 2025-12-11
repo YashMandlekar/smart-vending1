@@ -122,21 +122,34 @@ function toggleItem(name, price, btnId) {
   updateSummary();
 }
 
-function updateSummary() {
-  document.getElementById("orderList").innerHTML = 
-    selected.length ? selected.map(i => `- ${i.name} (₹${i.price})`).join("<br>") : "Items: None";
 
-  document.getElementById("totalPrice").innerText = "Total: ₹" + total;
+// ✅ FIXED ORDER SUMMARY FUNCTION
+function updateSummary() {
+  const summaryDiv = document.getElementById("summary");
+  const totalSpan = document.getElementById("total");
+
+  if (selected.length === 0) {
+    summaryDiv.innerHTML = "No items selected";
+  } else {
+    summaryDiv.innerHTML = selected
+      .map(i => `- ${i.name} (₹${i.price})`)
+      .join("<br>");
+  }
+
+  totalSpan.innerText = total;
 }
 
 
+
 // -------------------- PAYMENT FLOW --------------------
-async function startPayment() {
-  if (total <= 0) return alert("Please select items first!");
+async function payNow() {
+  if (total <= 0) {
+    alert("Please select at least one item!");
+    return;
+  }
 
-  document.getElementById("msg").innerText = "Creating order...";
+  document.getElementById("status").innerText = "Creating payment session...";
 
-  // 1) CALL BACKEND TO CREATE CASHFREE ORDER
   const res = await fetch("/api/create-order", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -147,30 +160,25 @@ async function startPayment() {
   });
 
   const data = await res.json();
-  console.log("Order Response:", data);
+  console.log("ORDER RESPONSE:", data);
 
-  if (!data.success || !data.payment_session_id) {
-    document.getElementById("msg").innerText = "Order creation failed!";
+  if (!data.success) {
+    document.getElementById("status").innerText = "Payment session error!";
     return;
   }
 
-  const sessionId = data.payment_session_id;
-
   const cashfree = await Cashfree({ mode: "production" });
 
-  // 2) OPEN CASHFREE UI
   cashfree.checkout({
-    paymentSessionId: sessionId,
+    paymentSessionId: data.payment_session_id,
     redirectTarget: "_self"
   }).then(async (result) => {
+    console.log("PAYMENT RESULT:", result);
 
-    console.log("Payment Result:", result);
-
-    // PAYMENT SUCCESS
     if (result.paymentDetails?.paymentStatus === "SUCCESS") {
-      document.getElementById("msg").innerText = "Payment successful! Dispensing...";
+      document.getElementById("status").innerText = "Payment successful! Dispensing...";
 
-      // 3) CALL DISPENSE API (THIS TRIGGERS BLYNK + ESP32)
+      // CALL DISPENSE API
       await fetch("/api/dispense", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -180,14 +188,16 @@ async function startPayment() {
       });
 
     } else {
-      document.getElementById("msg").innerText = "Payment failed!";
+      document.getElementById("status").innerText = "Payment Failed!";
     }
   });
 }
 </script>
 
+
 </body>
 </html>
+
 
 
 
