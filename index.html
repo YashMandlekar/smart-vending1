@@ -1,20 +1,20 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Correct Cashfree SDK -->
-  <script src="https://sdk.cashfree.com/assets/sdk/js/ui/2.0.0/cashfree-ui.js"></script>
+  <!-- CASHFREE POPUP SDK (UI 2.0) -->
+  <script src="https://sdk.cashfree.com/js/ui/2.0.0/cashfree-ui.js"></script>
+
+  <title>Smart IoT Vending</title>
 
   <style>
     body { font-family: Arial; background:#f2f2f2; text-align:center; }
-    .card { background:white; margin:15px auto; padding:15px; width:90%; max-width:400px; border-radius:10px; }
-    .addedBtn { background:#28a745 !important; }
-    button { padding:10px 20px; background:#007bff; color:white; border:none; border-radius:6px; cursor:pointer; }
+    .card { background:#fff; padding:14px; margin:12px auto; width:90%; max-width:400px; border-radius:10px; }
+    button { background:#007bff; color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; }
+    .addedBtn { background:#34a853 !important; }
   </style>
-
-  <title>Smart IoT Vending</title>
 </head>
 
 <body>
@@ -45,14 +45,18 @@
 </div>
 
 <script>
+/* ---- FRONTEND SETTINGS ---- */
+const BACKEND_URL = "https://smart-vending1.vercel.app/api/create-order";
+
+/* ---- ITEMS ---- */
 let selected = [];
 let total = 0;
 
 function toggleItem(name, price, id) {
   const btn = document.getElementById(id);
-  const exists = selected.find(x => x.name === name);
+  const found = selected.find(x => x.name === name);
 
-  if (exists) {
+  if (found) {
     selected = selected.filter(x => x.name !== name);
     total -= price;
     btn.innerText = "Add " + name;
@@ -63,6 +67,7 @@ function toggleItem(name, price, id) {
     btn.innerText = "Added";
     btn.classList.add("addedBtn");
   }
+
   updateUI();
 }
 
@@ -73,12 +78,13 @@ function updateUI() {
   document.getElementById("totalPrice").innerText = "Total: ₹" + total;
 }
 
+/* ---- PAYMENT ---- */
 async function initiatePayment() {
-  if (total <= 0) return alert("Please select an item");
+  if (total <= 0) return alert("Please select at least one item.");
 
   document.getElementById("msg").innerText = "Creating order...";
 
-  const res = await fetch("/api/create-order", {
+  const res = await fetch(BACKEND_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -87,19 +93,22 @@ async function initiatePayment() {
     })
   });
 
-  const data = await res.json();
-  console.log("Backend:", data);
+  const json = await res.json();
+  console.log("Backend:", json);
 
-  if (!data.payment_session_id) {
-    alert("Payment session missing!");
+  if (!json.success || !json.order?.payment_session_id) {
+    alert("Payment session missing");
     return;
   }
 
-  const cf = await Cashfree.init({ mode: "production" });
+  /** POPUP CHECKOUT **/
+  const cashfree = new Cashfree({
+    mode: "production",
+  });
 
-  cf.pay({
-    paymentSessionId: data.payment_session_id,
-    redirectTarget: "_self"
+  cashfree.checkout({
+    paymentSessionId: json.order.payment_session_id,
+    redirectTarget: "_self",  // Not needed for popup but required by SDK
   });
 }
 </script>
