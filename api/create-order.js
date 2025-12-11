@@ -5,6 +5,7 @@ export default async function handler(req, res) {
 
   try {
     const { amount } = req.body;
+
     if (!amount || amount <= 0) {
       return res.status(400).json({ success: false, error: "Invalid amount" });
     }
@@ -15,56 +16,55 @@ export default async function handler(req, res) {
     if (!APP_ID || !SECRET) {
       return res.status(500).json({
         success: false,
-        error: "Cashfree keys missing in Vercel",
+        error: "Cashfree keys missing in Vercel env"
       });
     }
 
+    // Payload for Cashfree order API
     const payload = {
       order_id: "order_" + Date.now(),
       order_amount: amount,
       order_currency: "INR",
       customer_details: {
         customer_id: "cust_" + Date.now(),
-        customer_phone: "9999999999",
-        customer_email: "no-reply@test.com"
+        customer_email: "noreply@vend.com",
+        customer_phone: "9999999999"
       }
     };
 
-    // *** IMPORTANT FIX ***
-    const r = await fetch("https://api.cashfree.com/pg/orders", {
+    const response = await fetch("https://api.cashfree.com/pg/orders", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "x-client-id": APP_ID,
         "x-client-secret": SECRET,
-        "x-api-version": "2023-08-01"    // REQUIRED HEADER
+        "x-api-version": "2022-01-01"
       },
       body: JSON.stringify(payload)
     });
 
-    const cashfree = await r.json();
-    console.log("CASHFREE RAW RESPONSE:", cashfree);
+    const data = await response.json();
 
-    const sessionId = cashfree?.payment_session_id;
-
-    if (!sessionId) {
+    if (!data || !data.payment_session_id) {
+      console.log("Cashfree error:", data);
       return res.status(500).json({
         success: false,
         error: "Payment session missing",
-        cashfree
+        cashfree: data
       });
     }
 
     return res.status(200).json({
       success: true,
-      payment_session_id: sessionId
+      payment_session_id: data.payment_session_id,
+      order_id: payload.order_id
     });
 
   } catch (err) {
-    console.error("SERVER ERROR:", err);
+    console.error("Backend error:", err);
     return res.status(500).json({
       success: false,
-      error: err.message || "Unknown error"
+      error: err.message || "Server error"
     });
   }
 }
