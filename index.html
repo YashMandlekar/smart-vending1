@@ -4,52 +4,38 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Cashfree v2 UI JS -->
-  <script src="https://sdk.cashfree.com/js/ui/2.0.0/cashfree-ui.js"></script>
-
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-
-  <title>Smart IoT Vending</title>
+  <!-- Correct Cashfree SDK -->
+  <script src="https://sdk.cashfree.com/assets/sdk/js/ui/2.0.0/cashfree-ui.js"></script>
 
   <style>
-    body { font-family: Arial; background: #f2f2f2; text-align: center; }
-    .card {
-      background: #fff; padding: 14px; 
-      margin: 12px auto; width: 90%; 
-      max-width: 400px; border-radius: 10px;
-    }
-    button {
-      background:#0078ff; color:white;
-      border:none; padding:10px 20px;
-      border-radius:8px; cursor:pointer;
-    }
-    .addedBtn { background:#34a853 !important; }
+    body { font-family: Arial; background:#f2f2f2; text-align:center; }
+    .card { background:white; margin:15px auto; padding:15px; width:90%; max-width:400px; border-radius:10px; }
+    .addedBtn { background:#28a745 !important; }
+    button { padding:10px 20px; background:#007bff; color:white; border:none; border-radius:6px; cursor:pointer; }
   </style>
+
+  <title>Smart IoT Vending</title>
 </head>
 
 <body>
 
 <h2>Smart IoT Vending</h2>
 
-<!-- ITEM CARDS -->
 <div class="card">
   <h3>🥤 Water — ₹10</h3>
-  <button id="b1" onclick="toggleItem('Water', 10, 'b1')">Add Water</button>
+  <button id="b1" onclick="toggleItem('Water',10,'b1')">Add Water</button>
 </div>
 
 <div class="card">
   <h3>🧃 Juice — ₹10</h3>
-  <button id="b2" onclick="toggleItem('Juice', 10, 'b2')">Add Juice</button>
+  <button id="b2" onclick="toggleItem('Juice',10,'b2')">Add Juice</button>
 </div>
 
 <div class="card">
   <h3>🍪 Biscuit — ₹10</h3>
-  <button id="b3" onclick="toggleItem('Biscuit', 10, 'b3')">Add Biscuit</button>
+  <button id="b3" onclick="toggleItem('Biscuit',10,'b3')">Add Biscuit</button>
 </div>
 
-<!-- SUMMARY -->
 <div class="card">
   <h3>Order Summary</h3>
   <p id="orderList">Items: None</p>
@@ -59,20 +45,6 @@
 </div>
 
 <script>
-/* ------------------ FIREBASE ------------------ */
-firebase.initializeApp({
-  apiKey: "AIzaSyAPTlRQNFK2xqtRgT6OxEKDX7UphhsIC1c",
-  authDomain: "smartvending-a7db9.firebaseapp.com",
-  databaseURL: "https://smartvending-a7db9-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "smartvending-a7db9"
-});
-const db = firebase.database();
-
-/* ------------------ CONFIG ------------------ */
-const BACKEND_URL = "/api/create-order";  
-// NOTE → Because frontend + backend both hosted on Vercel same domain
-
-/* ------------------ ITEM SELECTION ------------------ */
 let selected = [];
 let total = 0;
 
@@ -91,7 +63,6 @@ function toggleItem(name, price, id) {
     btn.innerText = "Added";
     btn.classList.add("addedBtn");
   }
-
   updateUI();
 }
 
@@ -102,44 +73,35 @@ function updateUI() {
   document.getElementById("totalPrice").innerText = "Total: ₹" + total;
 }
 
-/* ------------------ PAYMENT FLOW ------------------ */
 async function initiatePayment() {
   if (total <= 0) return alert("Please select an item");
 
   document.getElementById("msg").innerText = "Creating order...";
 
-  try {
-    /* CALL BACKEND TO CREATE ORDER */
-    const res = await fetch(BACKEND_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        amount: total,
-        items: selected.map(x => x.name)
-      })
-    });
+  const res = await fetch("/api/create-order", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      amount: total,
+      items: selected.map(x => x.name)
+    })
+  });
 
-    const data = await res.json();
-    console.log("Backend:", data);
+  const data = await res.json();
+  console.log("Backend:", data);
 
-    if (!data?.payment_session_id) {
-      alert("Payment session missing!");
-      return;
-    }
-
-    /* INIT CASHFREE */
-    const cashfree = new Cashfree({ mode: "production" });
-
-    /* OPEN PAYMENT WINDOW */
-    cashfree.pay({
-      paymentSessionId: data.payment_session_id,
-      redirectTarget: "_self"
-    });
-
-  } catch (err) {
-    console.error(err);
-    alert("Payment error!");
+  if (!data.payment_session_id) {
+    alert("Payment session missing!");
+    return;
   }
+
+  // Correct Cashfree object
+  const cf = await Cashfree.init({ mode: "production" });
+
+  cf.pay({
+    paymentSessionId: data.payment_session_id,
+    redirectTarget: "_self"
+  });
 }
 </script>
 
