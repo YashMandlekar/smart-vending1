@@ -1,14 +1,4 @@
-export const config = {
-  api: { bodyParser: true },
-};
-
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-  if (req.method === "OPTIONS") return res.status(200).end();
-
   if (req.method !== "POST") {
     return res.status(405).json({ success: false, error: "POST only" });
   }
@@ -16,21 +6,29 @@ export default async function handler(req, res) {
   try {
     const { amount } = req.body;
 
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ success: false, error: "Invalid amount" });
+    }
+
     const APP_ID = process.env.CASHFREE_APP_ID;
     const SECRET = process.env.CASHFREE_SECRET;
 
     if (!APP_ID || !SECRET) {
-      return res.status(500).json({ success: false, error: "Cashfree keys missing" });
+      return res.status(500).json({
+        success: false,
+        error: "Cashfree keys missing in Vercel env",
+      });
     }
 
     const payload = {
+      order_id: "order_" + Date.now(),
       order_amount: amount,
       order_currency: "INR",
       customer_details: {
         customer_id: "cust_" + Date.now(),
-        customer_email: "no-email@dummy.com",
         customer_phone: "9999999999",
-      },
+        customer_email: "no-reply@test.com",
+      }
     };
 
     const r = await fetch("https://api.cashfree.com/pg/orders", {
@@ -43,27 +41,30 @@ export default async function handler(req, res) {
       body: JSON.stringify(payload),
     });
 
-    const json = await r.json();
-    console.log("CASHFREE RESPONSE:", json);
+    const cashfreeRes = await r.json();
+    console.log("CASHFREE RESPONSE:", cashfreeRes);
 
-    if (!json.data?.payment_session_id) {
+    const session_id = cashfreeRes?.payment_session_id;
+
+    if (!session_id) {
       return res.status(500).json({
         success: false,
         error: "Payment session missing",
-        cashfree: json
+        cashfree: cashfreeRes,
       });
     }
 
     return res.status(200).json({
       success: true,
-      payment_session_id: json.data.payment_session_id,
-      order_id: json.data.order_id
+      payment_session_id: session_id,
     });
 
   } catch (err) {
+    console.error("SERVER ERROR:", err);
     return res.status(500).json({
       success: false,
-      error: err.message
+      error: err.message || "Unknown error",
     });
   }
 }
+
