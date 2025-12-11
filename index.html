@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Cashfree UI SDK -->
-  <script src="https://sdk.cashfree.com/js/ui/2.0.0/cashfree-ui.js"></script>
+  <!-- CASHFREE NEW UI SDK (Correct + Tested) -->
+  <script src="https://sdk.cashfree.com/js/ui/v3/cashfree.js"></script>
 
   <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
@@ -14,9 +14,9 @@
   <title>Smart IoT Vending</title>
 
   <style>
-    body { font-family: Arial; background:#f2f2f2; text-align:center; }
-    .card { background:white; padding:15px; margin:14px auto; width:90%; max-width:400px; border-radius:10px; }
-    button { padding:10px 20px; border:none; background:#007bff; color:white; border-radius:8px; margin-top:8px; cursor:pointer; }
+    body { font-family: Arial; background: #f2f2f2; text-align:center; }
+    .card { background:#fff; padding:14px; margin:12px auto; width:90%; max-width:400px; border-radius:10px; }
+    button { background:#0078ff; color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; }
     .addedBtn { background:#34a853 !important; }
   </style>
 </head>
@@ -48,24 +48,21 @@
   <p id="msg"></p>
 </div>
 
-
 <script>
-// ---------------- Firebase ----------------
+/* ---------------------- FIREBASE ---------------------- */
 firebase.initializeApp({
   apiKey: "AIzaSyAPTlRQNFK2xqtRgT6OxEKDX7UphhsIC1c",
   authDomain: "smartvending-a7db9.firebaseapp.com",
   databaseURL: "https://smartvending-a7db9-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "smartvending-a7db9"
 });
+
 const db = firebase.database();
 
+/* ---------------------- SETTINGS ---------------------- */
+const BACKEND_URL = "/api/create-order";  // CORRECT FOR VERCEL PROJECT
 
-// --------------- SETTINGS -----------------
-const BACKEND_URL = "https://smart-vending1.vercel.app/api/create-order"; 
-// <- Yaha apna Vercel URL laga dena
-
-
-// ---------- ITEM HANDLING ----------
+/* ---------------------- ITEM LOGIC ---------------------- */
 let selected = [];
 let total = 0;
 
@@ -84,7 +81,6 @@ function toggleItem(name, price, id) {
     btn.innerText = "Added";
     btn.classList.add("addedBtn");
   }
-
   updateUI();
 }
 
@@ -95,40 +91,39 @@ function updateUI() {
   document.getElementById("totalPrice").innerText = "Total: ₹" + total;
 }
 
-
-// ---------------- PAYMENT FLOW ----------------
+/* ---------------------- PAYMENT FLOW ---------------------- */
 async function initiatePayment() {
-  if (total <= 0) return alert("Please select an item first");
+  if (total <= 0) return alert("Please select an item");
 
   document.getElementById("msg").innerText = "Creating order...";
 
-  let res = await fetch(BACKEND_URL, {
+  const res = await fetch(BACKEND_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       amount: total,
-      items: selected
+      items: selected.map(x => x.name)
     })
   });
 
-  const json = await res.json();
-  console.log("Backend:", json);
+  const data = await res.json();
+  console.log("Backend:", data);
 
-  if (!json.success || !json.payment_session_id) {
-    alert("Payment session missing! Check backend.");
-    console.log("Backend error:", json);
+  if (!data || !data.payment_session_id) {
+    alert("Payment session missing!");
     return;
   }
 
-  // Create Cashfree SDK instance
-  const cashfree = await Cashfree({ mode: "production" });
+  // Cashfree instance
+  const cf = new Cashfree();
 
-  cashfree.pay({
-    paymentSessionId: json.payment_session_id,
-    redirectTarget: "_self",
+  cf.checkout({
+    paymentSessionId: data.payment_session_id,
+    returnUrl: window.location.href
   });
 }
 </script>
 
 </body>
 </html>
+
