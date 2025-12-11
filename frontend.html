@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Smart IoT Vending</title>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+<!-- Cashfree V3 SDK -->
+<script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
+
+<style>
+body{font-family:Poppins,Arial;background:#f6f8fa;padding:20px;text-align:center;}
+.card{background:#fff;padding:16px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.08);margin:12px auto;max-width:420px;}
+button{background:#0078d7;color:#fff;border:none;padding:10px 16px;border-radius:10px;font-size:15px;cursor:pointer;}
+.addedBtn{background:#34a853 !important;}
+.status{margin-top:12px;font-weight:bold;}
+</style>
+</head>
+<body>
+
+<h2>Smart IoT Vending</h2>
+<p>Select items & Pay</p>
+
+<div class="card">
+  <h3>🥤 Water — ₹10</h3>
+  <button id="b1" onclick="toggleItem('Water',10,'b1')">Add Water</button>
+</div>
+
+<div class="card">
+  <h3>🧃 Juice — ₹20</h3>
+  <button id="b2" onclick="toggleItem('Juice',20,'b2')">Add Juice</button>
+</div>
+
+<div class="card">
+  <h3>🍪 Biscuit — ₹30</h3>
+  <button id="b3" onclick="toggleItem('Biscuit',30,'b3')">Add Biscuit</button>
+</div>
+
+<div class="card">
+  <h3>Order Summary</h3>
+  <p id="orderList">Items: None selected</p>
+  <p id="totalPrice">Total: ₹0</p>
+  <button onclick="initiatePayment()">Proceed to Pay</button>
+  <p id="msg" class="status"></p>
+</div>
+
+<script>
+// FIREBASE
+firebase.initializeApp({
+  apiKey: "AIzaSyAPTlRQNFK2xqtRgT6OxEKDX7UphhsIC1c",
+  authDomain: "smartvending-a7db9.firebaseapp.com",
+  databaseURL: "https://smartvending-a7db9-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "smartvending-a7db9",
+  storageBucket: "smartvending-a7db9.appspot.com",
+  messagingSenderId: "306898447779",
+  appId: "1:306898447779:web:ac27ff2f067a12fd74fe16"
+});
+const db = firebase.database();
+
+// BACKEND URL (SAME DOMAIN - NO CORS)
+const CASHFREE_URL = "/api/create-order";
+
+let selectedItems = [];
+let total = 0;
+
+function toggleItem(name, price, btn) {
+  const button = document.getElementById(btn);
+  const found = selectedItems.find(i => i.name === name);
+
+  if (found) {
+    selectedItems = selectedItems.filter(i => i.name !== name);
+    total -= price;
+    button.classList.remove("addedBtn");
+    button.innerText = "Add " + name;
+  } else {
+    selectedItems.push({ name, price });
+    total += price;
+    button.classList.add("addedBtn");
+    button.innerText = "Added";
+  }
+  updateSummary();
+}
+
+function updateSummary() {
+  document.getElementById("orderList").innerHTML =
+    selectedItems.length === 0
+    ? "Items: None"
+    : selectedItems.map(i => `- ${i.name} (₹${i.price})`).join("<br>");
+
+  document.getElementById("totalPrice").innerText = "Total: ₹" + total;
+}
+
+async function initiatePayment() {
+
+  if (total <= 0) { alert("Choose an item first!"); return; }
+
+  document.getElementById("msg").innerText = "Creating order...";
+
+  // CREATE ORDER FROM BACKEND
+  const resp = await fetch(CASHFREE_URL, {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({
+      amount: total,
+      items: selectedItems.map(i => i.name)
+    })
+  });
+
+  const data = await resp.json();
+  console.log("ORDER RESPONSE:", data);
+
+  if (!data.success) {
+    document.getElementById("msg").innerText = "Order creation failed!";
+    return;
+  }
+
+  // GET PAYMENT SESSION ID
+  const session =
+    data.order?.payment_session_id ||
+    data.order?.data?.payment_session_id ||
+    data?.data?.payment_session_id;
+
+  if (!session) {
+    document.getElementById("msg").innerText = "Payment session missing!";
+    return;
+  }
+
+  const cf = Cashfree({ mode: "production" });
+
+  // LAUNCH CHECKOUT WITHOUT ASKING PHONE/EMAIL
+  cf.checkout({
+    paymentSessionId: session,
+    redirectTarget: "_self",
+    layout: {
+      userDetails: {
+        showEmail: false,
+        showPhone: false
+      }
+    }
+  }).then(async (result) => {
+
+    const success =
+      result?.paymentDetails?.status === "SUCCESS" ||
+      result?.status === "SUCCESS";
+
+    if (success) {
+      const payId =
+        result?.paymentDetails?.payment_id ||
+        result?.transaction?.transaction_id ||
+        null;
+
+      await db.ref("orders").push({
+        payment_id: payId,
+        items: selectedItems.map(i => i.name),
+        amount: total,
+        timestamp: Date.now()
+      });
+
+      document.getElementById("msg").innerText = "Payment Success! Dispensing...";
+    } else {
+      document.getElementById("msg").innerText = "Payment Failed!";
+    }
+  });
+}
+</script>
+
+</body>
+</html>
