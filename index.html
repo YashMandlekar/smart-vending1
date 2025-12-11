@@ -1,16 +1,36 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-
+  <title>Smart IoT Vending</title>
   <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
 
   <style>
-    body { font-family: Arial; background:#f7f7f7; text-align:center }
-    .card { background:#fff; width:90%; max-width:400px; padding:15px; margin:15px auto; border-radius:10px }
-    button { padding:10px 20px; border:none; border-radius:6px; background:#007bff; color:#fff; cursor:pointer }
-    .added { background:#28a745!important }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f2f5;
+      text-align: center;
+      padding: 20px;
+    }
+    .card {
+      background: white;
+      padding: 18px;
+      margin: 12px auto;
+      max-width: 360px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    button {
+      padding: 10px 16px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 15px;
+    }
+    button.added {
+      background: #28a745 !important;
+    }
   </style>
 </head>
 
@@ -19,87 +39,84 @@
 <h2>Smart IoT Vending</h2>
 
 <div class="card">
-  <h3>Water — ₹10</h3>
-  <button id="b1" onclick="toggleItem('Water',10,'b1')">Add Water</button>
+  <h3>🥤 Water — ₹10</h3>
+  <button id="btn_water" onclick="toggleItem('WATER',10,'btn_water')">Add Water</button>
 </div>
 
 <div class="card">
-  <h3>Juice — ₹10</h3>
-  <button id="b2" onclick="toggleItem('Juice',10,'b2')">Add Juice</button>
+  <h3>🍪 Biscuit — ₹10</h3>
+  <button id="btn_biscuit" onclick="toggleItem('BISCUIT',10,'btn_biscuit')">Add Biscuit</button>
 </div>
 
 <div class="card">
-  <h3>Biscuit — ₹10</h3>
-  <button id="b3" onclick="toggleItem('Biscuit',10,'b3')">Add Biscuit</button>
+  <h3>🧃 Juice — ₹10</h3>
+  <button id="btn_juice" onclick="toggleItem('JUICE',10,'btn_juice')">Add Juice</button>
 </div>
 
 <div class="card">
   <h3>Order Summary</h3>
-  <p id="items">Items: None</p>
-  <p id="total">Total: ₹0</p>
-  <button onclick="payNow()">Proceed to Payment</button>
-  <p id="statusText"></p>
+  <p id="summary">No items selected</p>
+  <p><b>Total: ₹<span id="total">0</span></b></p>
+  <button onclick="payNow()">Proceed to Pay</button>
+  <p id="status"></p>
 </div>
 
 <script>
-let cart = [];
+let selectedItems = [];
 let total = 0;
 
 function toggleItem(name, price, btnId) {
-  let btn = document.getElementById(btnId);
-  let exists = cart.find(i => i.name === name);
+  const btn = document.getElementById(btnId);
 
-  if (exists) {
-    cart = cart.filter(i => i.name !== name);
+  if (selectedItems.includes(name)) {
+    selectedItems = selectedItems.filter(item => item !== name);
     total -= price;
-    btn.innerText = "Add " + name;
     btn.classList.remove("added");
+    btn.innerText = "Add " + name;
   } else {
-    cart.push({ name, price });
+    selectedItems.push(name);
     total += price;
-    btn.innerText = "Added";
     btn.classList.add("added");
+    btn.innerText = "Added";
   }
-
-  updateUI();
+  updateSummary();
 }
 
-function updateUI() {
-  document.getElementById("items").innerHTML =
-    cart.length ? cart.map(i => `- ${i.name} (₹${i.price})`).join("<br>") : "Items: None";
-
-  document.getElementById("total").innerText = "Total: ₹" + total;
+function updateSummary() {
+  if (selectedItems.length === 0) {
+    document.getElementById("summary").innerText = "No items selected";
+  } else {
+    document.getElementById("summary").innerHTML =
+      selectedItems.map(i => "• " + i).join("<br>");
+  }
+  document.getElementById("total").innerText = total;
 }
 
 async function payNow() {
-  if (total <= 0) {
-    alert("Select at least one item");
+  if (selectedItems.length === 0) {
+    alert("Please select at least one item!");
     return;
   }
 
-  document.getElementById("statusText").innerText = "Creating order...";
+  document.getElementById("status").innerText = "Creating order...";
 
-  let res = await fetch("/api/create-order", {
+  const res = await fetch("/api/create-order", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       amount: total,
-      items: cart.map(i => i.name)
+      items: selectedItems
     })
   });
 
-  let data = await res.json();
-  console.log("Backend:", data);
-
+  const data = await res.json();
   if (!data.success) {
-    alert("Payment session missing!");
+    alert("Order failed: " + data.error);
     return;
   }
 
-  // Cashfree v3 Handler
-  const cashfree = Cashfree({ mode: "production" });
-
-  cashfree.checkout({
+  const cf = new Cashfree({ mode: "production" });
+  cf.checkout({
     paymentSessionId: data.payment_session_id,
     redirectTarget: "_self"
   });
