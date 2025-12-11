@@ -5,7 +5,6 @@ export default async function handler(req, res) {
 
   try {
     const { amount } = req.body;
-
     if (!amount || amount <= 0) {
       return res.status(400).json({ success: false, error: "Invalid amount" });
     }
@@ -16,7 +15,7 @@ export default async function handler(req, res) {
     if (!APP_ID || !SECRET) {
       return res.status(500).json({
         success: false,
-        error: "Cashfree keys missing in Vercel env",
+        error: "Cashfree keys missing in Vercel",
       });
     }
 
@@ -27,44 +26,45 @@ export default async function handler(req, res) {
       customer_details: {
         customer_id: "cust_" + Date.now(),
         customer_phone: "9999999999",
-        customer_email: "no-reply@test.com",
+        customer_email: "no-reply@test.com"
       }
     };
 
+    // *** IMPORTANT FIX ***
     const r = await fetch("https://api.cashfree.com/pg/orders", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "x-client-id": APP_ID,
         "x-client-secret": SECRET,
+        "x-api-version": "2023-08-01"    // REQUIRED HEADER
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payload)
     });
 
-    const cashfreeRes = await r.json();
-    console.log("CASHFREE RESPONSE:", cashfreeRes);
+    const cashfree = await r.json();
+    console.log("CASHFREE RAW RESPONSE:", cashfree);
 
-    const session_id = cashfreeRes?.payment_session_id;
+    const sessionId = cashfree?.payment_session_id;
 
-    if (!session_id) {
+    if (!sessionId) {
       return res.status(500).json({
         success: false,
         error: "Payment session missing",
-        cashfree: cashfreeRes,
+        cashfree
       });
     }
 
     return res.status(200).json({
       success: true,
-      payment_session_id: session_id,
+      payment_session_id: sessionId
     });
 
   } catch (err) {
     console.error("SERVER ERROR:", err);
     return res.status(500).json({
       success: false,
-      error: err.message || "Unknown error",
+      error: err.message || "Unknown error"
     });
   }
 }
-
