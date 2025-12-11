@@ -1,19 +1,16 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <!-- Correct Cashfree SDK v3 -->
   <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
 
-  <title>Smart IoT Vending</title>
-
   <style>
-    body { font-family: Arial; background:#f2f2f2; text-align:center; }
-    .card { background:#fff; padding:14px; margin:12px auto; width:90%; max-width:400px; border-radius:10px; }
-    button { background:#0078ff; color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; }
-    .added { background:#34a853 !important; }
+    body { font-family: Arial; background:#f7f7f7; text-align:center }
+    .card { background:#fff; width:90%; max-width:400px; padding:15px; margin:15px auto; border-radius:10px }
+    button { padding:10px 20px; border:none; border-radius:6px; background:#007bff; color:#fff; cursor:pointer }
+    .added { background:#28a745!important }
   </style>
 </head>
 
@@ -22,47 +19,44 @@
 <h2>Smart IoT Vending</h2>
 
 <div class="card">
-  <h3>🥤 Water — ₹10</h3>
-  <button id="w" onclick="toggleItem('Water',10,'w')">Add Water</button>
+  <h3>Water — ₹10</h3>
+  <button id="b1" onclick="toggleItem('Water',10,'b1')">Add Water</button>
 </div>
 
 <div class="card">
-  <h3>🧃 Juice — ₹10</h3>
-  <button id="j" onclick="toggleItem('Juice',10,'j')">Add Juice</button>
+  <h3>Juice — ₹10</h3>
+  <button id="b2" onclick="toggleItem('Juice',10,'b2')">Add Juice</button>
 </div>
 
 <div class="card">
-  <h3>🍪 Biscuit — ₹10</h3>
-  <button id="b" onclick="toggleItem('Biscuit',10,'b')">Add Biscuit</button>
+  <h3>Biscuit — ₹10</h3>
+  <button id="b3" onclick="toggleItem('Biscuit',10,'b3')">Add Biscuit</button>
 </div>
 
 <div class="card">
   <h3>Order Summary</h3>
-  <p id="items">No items selected</p>
+  <p id="items">Items: None</p>
   <p id="total">Total: ₹0</p>
   <button onclick="payNow()">Proceed to Payment</button>
-  <p id="msg"></p>
+  <p id="statusText"></p>
 </div>
 
 <script>
 let cart = [];
-let amount = 0;
+let total = 0;
 
-// BACKEND URL
-const BACKEND = "/api/create-order";   // Correct path for Vercel
+function toggleItem(name, price, btnId) {
+  let btn = document.getElementById(btnId);
+  let exists = cart.find(i => i.name === name);
 
-function toggleItem(name, price, id){
-  const btn = document.getElementById(id);
-  const exists = cart.find(x => x.name === name);
-
-  if(exists){
-    cart = cart.filter(x => x.name !== name);
-    amount -= price;
+  if (exists) {
+    cart = cart.filter(i => i.name !== name);
+    total -= price;
     btn.innerText = "Add " + name;
     btn.classList.remove("added");
   } else {
     cart.push({ name, price });
-    amount += price;
+    total += price;
     btn.innerText = "Added";
     btn.classList.add("added");
   }
@@ -70,43 +64,42 @@ function toggleItem(name, price, id){
   updateUI();
 }
 
-function updateUI(){
+function updateUI() {
   document.getElementById("items").innerHTML =
-    cart.length ? cart.map(x => `- ${x.name} (₹${x.price})`).join("<br>")
-                : "No items selected";
+    cart.length ? cart.map(i => `- ${i.name} (₹${i.price})`).join("<br>") : "Items: None";
 
-  document.getElementById("total").innerText = "Total: ₹" + amount;
+  document.getElementById("total").innerText = "Total: ₹" + total;
 }
 
-async function payNow(){
-  if(amount <= 0){
-    alert("Please add an item.");
+async function payNow() {
+  if (total <= 0) {
+    alert("Select at least one item");
     return;
   }
 
-  document.getElementById("msg").innerText = "Creating order...";
+  document.getElementById("statusText").innerText = "Creating order...";
 
-  const res = await fetch(BACKEND, {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      amount: amount,
-      items: cart
+  let res = await fetch("/api/create-order", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      amount: total,
+      items: cart.map(i => i.name)
     })
   });
 
-  const data = await res.json();
-  console.log("BACKEND:", data);
+  let data = await res.json();
+  console.log("Backend:", data);
 
-  if(!data.payment_session_id){
+  if (!data.success) {
     alert("Payment session missing!");
     return;
   }
 
-  // Initialize SDK
-  const cf = Cashfree({ mode: "production" });   // NO AWAIT IN v3
+  // Cashfree v3 Handler
+  const cashfree = Cashfree({ mode: "production" });
 
-  cf.checkout({
+  cashfree.checkout({
     paymentSessionId: data.payment_session_id,
     redirectTarget: "_self"
   });
@@ -115,3 +108,4 @@ async function payNow(){
 
 </body>
 </html>
+
