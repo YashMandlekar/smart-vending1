@@ -8,6 +8,7 @@
   <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
 
  <style>
+    /* --- ORIGINAL STYLES (kept intact) --- */
     body { 
       font-family: Arial, sans-serif; 
       background: #fffaf3;
@@ -66,12 +67,112 @@
       color: #444; 
       font-weight: bold; 
     }
+
+    /* --- DARK MODE OVERRIDES (added) --- */
+    /* These rules only apply when <html> has class "dark" - they override colours without changing original rules */
+    html.dark body {
+      background: #0b0f14 !important;
+      color: #e6eef5 !important;
+    }
+
+    html.dark .card {
+      background: #0f1720 !important;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.6) !important;
+    }
+
+    html.dark p, html.dark h2, html.dark h3 {
+      color: #d7e7f5 !important;
+    }
+
+    html.dark button {
+      background: #0b84ff !important;
+      color: white !important;
+      border: none !important;
+    }
+
+    html.dark button:hover {
+      background: #0666c7 !important;
+    }
+
+    html.dark .addedBtn {
+      background: #2fb84f !important;
+    }
+
+    html.dark #status {
+      color: #bfe6c9;
+    }
+
+    /* Dark-mode toggle (small UI, kept non-intrusive) */
+    .dark-toggle {
+      position: fixed;
+      right: 18px;
+      top: 18px;
+      background: rgba(255,255,255,0.85);
+      padding: 6px 10px;
+      border-radius: 999px;
+      box-shadow: 0 6px 14px rgba(0,0,0,0.08);
+      font-size: 14px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      z-index: 9999;
+    }
+
+    html.dark .dark-toggle {
+      background: rgba(10,14,20,0.6);
+      color: #e6eef5;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+    }
+
+    .dark-toggle input[type="checkbox"]{
+      width: 40px;
+      height: 22px;
+      appearance: none;
+      background: #dcdcdc;
+      border-radius: 20px;
+      position: relative;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .dark-toggle input[type="checkbox"]:after{
+      content: '';
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: white;
+      top: 2px;
+      left: 2px;
+      transition: all 0.18s ease;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+
+    .dark-toggle input[type="checkbox"]:checked{
+      background: #4b9bff;
+    }
+
+    .dark-toggle input[type="checkbox"]:checked:after{
+      transform: translateX(18px);
+    }
+
+    /* make sure toggle doesn't cover important content on very small screens */
+    @media (max-width:420px){
+      .dark-toggle{ right: 8px; top: 8px; padding:6px; font-size:13px; }
+    }
+
 </style>
 
 
 </head>
 
 <body>
+
+<!-- DARK MODE TOGGLE (added, non-destructive) -->
+<div class="dark-toggle" title="Toggle dark mode">
+  <label for="darkModeSwitch">Dark</label>
+  <input id="darkModeSwitch" type="checkbox" aria-label="Toggle dark mode">
+</div>
 
 <h2>Smart IoT Vending</h2>
 
@@ -192,18 +293,31 @@ async function payNow() {
     }
   });
 }
+
+// -------------------- DARK MODE TOGGLE LOGIC (added) --------------------
+const dmSwitch = document.getElementById('darkModeSwitch');
+
+// initialize from localStorage
+(function(){
+  try{
+    const saved = localStorage.getItem('smart_iot_dark') === '1';
+    if(saved){ document.documentElement.classList.add('dark'); dmSwitch.checked = true; }
+  }catch(e){ /* ignore */ }
+})();
+
+// toggle handler
+dmSwitch.addEventListener('change', function(){
+  if(this.checked){
+    document.documentElement.classList.add('dark');
+    try{ localStorage.setItem('smart_iot_dark','1'); }catch(e){}
+  } else {
+    document.documentElement.classList.remove('dark');
+    try{ localStorage.setItem('smart_iot_dark','0'); }catch(e){}
+  }
+});
+
 </script>
 
 
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
