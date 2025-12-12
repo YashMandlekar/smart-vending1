@@ -44,6 +44,8 @@
       font-size: 16px;
     }
 
+    .addedBtn:hover { background:#28a745 !important; }
+
     button:hover { 
       background: #005fcc; 
     }
@@ -216,7 +218,7 @@ function toggleItem(name, price, btnId) {
   } else {
     selected.push({ name, price });
     total += price;
-    btn.innerText = "Added";
+    btn.innerText = "Added ✓";
     btn.classList.add("addedBtn");
   }
 
